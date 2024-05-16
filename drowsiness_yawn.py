@@ -2,7 +2,7 @@
 
 from scipy.spatial import distance as dist
 from imutils.video import VideoStream
-from imutils import face_utils
+from imutils import face_utils, resize #added resize after first push
 from threading import Thread
 import numpy as np
 import argparse
@@ -11,6 +11,28 @@ import time
 import dlib
 import cv2
 import os
+
+#added func capture_and_display and func play_video_ad after first push
+
+def capture_and_display(frame, text):
+    # Display the frame with the detected yawn
+    cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    cv2.imshow("Yawn Detected", frame)
+    # Pause for a short moment to display the message
+    cv2.waitKey(2000)  # Display the image for 2 seconds
+    cv2.destroyWindow("Yawn Detected")
+
+def play_video_ad(video_path):
+    cap = cv2.VideoCapture(video_path)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)  # Restart video if finished
+            continue
+        cv2.imshow("Video Ad", frame)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    cap.release()
 
 def alarm(msg):
     global alarm_status
@@ -32,7 +54,6 @@ def alarm(msg):
 def eye_aspect_ratio(eye):
     A = dist.euclidean(eye[1], eye[5])
     B = dist.euclidean(eye[2], eye[4])
-
     C = dist.euclidean(eye[0], eye[3])
 
     ear = (A + B) / (2.0 * C)
@@ -80,13 +101,18 @@ saying = False
 COUNTER = 0
 
 print("-> Loading the predictor and detector...")
-#detector = dlib.get_frontal_face_detector()
-detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")    #Faster but less accurate
+detector = dlib.get_frontal_face_detector() #switched to this after first push
+#detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")    #Faster but less accurate
 predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
 
+# Start video ad in a separate thread, added after first push
+ad_thread = Thread(target=play_video_ad, args=('path_to_video.mp4',), daemon=True)
+ad_thread.start()
 
 print("-> Starting Video Stream")
-vs = VideoStream(src=args["webcam"]).start()
+#vs = VideoStream(src=args["webcam"]).start()
+#changed vs to below from above statement after first push
+vs = VideoStream(src=0).start()
 #vs= VideoStream(usePiCamera=True).start()       //For Raspberry Pi
 time.sleep(1.0)
 
@@ -95,15 +121,15 @@ while True:
     frame = vs.read()
     frame = imutils.resize(frame, width=450)
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
+    rects = detector(gray, 0) #changed to this from detector.detectMultiScale after first push
     #rects = detector(gray, 0)
-    rects = detector.detectMultiScale(gray, scaleFactor=1.1, 
-		minNeighbors=5, minSize=(30, 30),
-		flags=cv2.CASCADE_SCALE_IMAGE)
+    #rects = detector.detectMultiScale(gray, scaleFactor=1.1, 
+	#	minNeighbors=5, minSize=(30, 30),
+	#	flags=cv2.CASCADE_SCALE_IMAGE)
 
-    #for rect in rects:
-    for (x, y, w, h) in rects:
-        rect = dlib.rectangle(int(x), int(y), int(x + w),int(y + h))
+    for rect in rects: #changed to this for loop from below one after first push
+    #for (x, y, w, h) in rects:
+        #rect = dlib.rectangle(int(x), int(y), int(x + w),int(y + h))   #commented this out after first push
         
         shape = predictor(gray, rect)
         shape = face_utils.shape_to_np(shape)
@@ -148,6 +174,12 @@ while True:
                     t = Thread(target=alarm, args=('take some fresh air sir',))
                     t.deamon = True
                     t.start()
+                # Display yawn alert and pause video ad, added five lines below after first push
+                cv2.putText(frame, "Time to Sleepwell", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                cv2.imshow("Yawn Detected", frame)
+                cv2.waitKey(2000)  # Show the alert for 2 seconds
+                cv2.destroyWindow("Yawn Detected")
+                break
         else:
             alarm_status2 = False
 
@@ -159,6 +191,12 @@ while True:
 
     cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF
+
+#added the four lines below after first push
+    cv2.imshow("Frame", frame)
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord("q"):
+        break
 
     if key == ord("q"):
         break
